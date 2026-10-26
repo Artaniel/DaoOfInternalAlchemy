@@ -27,6 +27,7 @@ public sealed class QiParticleManager : MonoBehaviour
         _particles = new NativeArray<QiParticleData>(ParticleCapacity, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         IsInitialized = true;
 
+        ActiveCount = 0;
         SpawnInitialParticles();
 
         Debug.Log(
@@ -41,10 +42,10 @@ public sealed class QiParticleManager : MonoBehaviour
 
     internal void SpawnInitialParticles()
     {
-        for (int i = 0; i < ParticleCapacity / 4; i++)
+        for (int i = 0; i < ParticleCapacity; i++)
         {
             float angle = UnityEngine.Random.value * 2 * Mathf.PI;
-            float radius = 15f + UnityEngine.Random.value * 15f;
+            float radius = QiFieldGrid.WorldHalfSize * (0.3f + UnityEngine.Random.value * 0.4f);
             Spawn(
                 i, 
                 Mathf.Cos(angle) * radius, 
