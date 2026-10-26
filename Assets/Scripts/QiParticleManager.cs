@@ -1,5 +1,6 @@
 using Unity.Collections;
 using UnityEngine;
+using Unity.Mathematics;
 
 public sealed class QiParticleManager : MonoBehaviour
 {
@@ -42,9 +43,12 @@ public sealed class QiParticleManager : MonoBehaviour
     {
         for (int i = 0; i < ParticleCapacity / 4; i++)
         {
-            float angle = Random.value * 2 * Mathf.PI;
-            float radius = 15f + Random.value * 15f;
-            Spawn(i, Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, Random.value > 0.5f ? 1 : 0);
+            float angle = UnityEngine.Random.value * 2 * Mathf.PI;
+            float radius = 15f + UnityEngine.Random.value * 15f;
+            Spawn(
+                i, 
+                Mathf.Cos(angle) * radius, 
+                Mathf.Sin(angle) * radius, (byte)(UnityEngine.Random.value > 0.5f ? 1 : 0), 1);
         }
     }
 
