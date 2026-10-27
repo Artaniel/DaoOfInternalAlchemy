@@ -500,6 +500,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2c692c9728dee24ab5c083a7cc394f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QiParticleManager
+  _particleCapacity: 100
+  _speedMin: 0.25
+  _speedMax: 1
   ActiveCount: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

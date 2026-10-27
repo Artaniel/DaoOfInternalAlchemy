@@ -4,7 +4,9 @@ using Unity.Mathematics;
 
 public sealed class QiParticleManager : MonoBehaviour
 {
-    public const int ParticleCapacity = 100;
+    [SerializeField] int _particleCapacity = 100;
+    [SerializeField] float _speedMin = 0.25f;
+    [SerializeField] float _speedMax = 1f;
 
     readonly QiFieldGrid _field = new();
 
@@ -12,6 +14,7 @@ public sealed class QiParticleManager : MonoBehaviour
 
     public bool IsInitialized { get; private set; }
 
+    public int Capacity => _particleCapacity;
     public QiFieldGrid Field => _field;
     public NativeArray<QiParticleData> Particles => _particles;
     public int ActiveCount;
@@ -24,7 +27,7 @@ public sealed class QiParticleManager : MonoBehaviour
         }
 
         _field.Allocate();
-        _particles = new NativeArray<QiParticleData>(ParticleCapacity, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        _particles = new NativeArray<QiParticleData>(_particleCapacity, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         IsInitialized = true;
 
         ActiveCount = 0;
@@ -34,15 +37,34 @@ public sealed class QiParticleManager : MonoBehaviour
             $"[QiParticleManager] Initialized field {QiFieldGrid.Width}x{QiFieldGrid.Height} ({QiFieldGrid.CellCount} cells) and {_particles.Length} particles.");
     }
 
+    public void Tick(float deltaTime)
+    {
+        for (int i = 0; i < ActiveCount; i++)
+        {
+            QiParticleData particle = _particles[i];
+            particle.Position += particle.Velocity * deltaTime;
+            particle.Position = new float2(WrapCoordinate(particle.Position.x), WrapCoordinate(particle.Position.y));
+            _particles[i] = particle;
+        }
+    }
+
     internal void Spawn(int index, float x, float y, byte element, float charge)
     {
-        _particles[index] = new QiParticleData { Position = new float2(x, y), Velocity = new float2(0f, 0f), Element = element, Charge = charge, Mass = 1f };
+        _particles[index] = new QiParticleData
+        {
+            Position = new float2(x, y),
+            Velocity = RandomVelocity(),
+            Element = element,
+            Charge = charge,
+            Mass = 1f,
+        };
+
         ActiveCount++;
     }
 
     internal void SpawnInitialParticles()
     {
-        for (int i = 0; i < ParticleCapacity; i++)
+        for (int i = 0; i < _particleCapacity; i++)
         {
             float angle = UnityEngine.Random.value * 2 * Mathf.PI;
             float radius = QiFieldGrid.WorldHalfSize * (0.3f + UnityEngine.Random.value * 0.4f);
@@ -51,6 +73,25 @@ public sealed class QiParticleManager : MonoBehaviour
                 Mathf.Cos(angle) * radius, 
                 Mathf.Sin(angle) * radius, (byte)(UnityEngine.Random.value > 0.5f ? 1 : 0), 1);
         }
+    }
+
+    float2 RandomVelocity()
+    {
+        float angle = UnityEngine.Random.value * 2f * Mathf.PI;
+        float speed = _speedMin + UnityEngine.Random.value * (_speedMax - _speedMin);
+
+        return new float2(Mathf.Cos(angle) * speed, Mathf.Sin(angle) * speed);
+    }
+
+    static float WrapCoordinate(float value)
+    {
+        float wrapped = (value + QiFieldGrid.WorldHalfSize) % QiFieldGrid.WorldSize;
+        if (wrapped < 0f)
+        {
+            wrapped += QiFieldGrid.WorldSize;
+        }
+
+        return wrapped - QiFieldGrid.WorldHalfSize;
     }
 
     void OnDestroy()

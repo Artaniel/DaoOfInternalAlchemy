@@ -70,7 +70,7 @@ public void Initialize(QiParticleManager particleManager)
 
 ```
 Bootstrap.Update
-├─ QiParticleManager.Tick(dt)   // появится вместе с движением частиц
+├─ QiParticleManager.Tick(dt)   // интеграция позиции, torus-wrap
 └─ QiParticleRenderer.Render()
 ```
 
@@ -92,8 +92,8 @@ Bootstrap.Update
 | Объект | Компонент | Ответственность | Зависимости |
 |---|---|---|---|
 | `Bootstrap` | `Bootstrap` | порядок инициализации и кадра | `QiParticleManager`, `QiParticleRenderer` |
-| `QiParticleManager` | `QiParticleManager` | поле `QiFieldGrid` 1000×1000, `NativeArray<QiParticleData>` на 100 частиц, спавн, `ActiveCount` | — |
-| `QiParticleRenderer` | `QiParticleRenderer` | инстансированная отрисовка частиц одним draw call | `QiParticleManager` через `Initialize` |
+| `QiParticleManager` | `QiParticleManager` | поле `QiFieldGrid` 1000×1000, `NativeArray<QiParticleData>` на `Capacity` частиц, спавн со случайной скоростью, интеграция позиции, torus-wrap, `ActiveCount` | — |
+| `QiParticleRenderer` | `QiParticleRenderer` | инстансированная отрисовка частиц батчами по 511 | `QiParticleManager` через `Initialize` |
 
 Рантайм-поток:
 
@@ -101,7 +101,9 @@ Bootstrap.Update
 2. `QiParticleManager.Initialize` выделяет поле и массив частиц, спавнит 100 штук.
 3. `QiParticleRenderer.Initialize` берёт меш и материал из префаба `QiParticleQuad`,
    выделяет буфер матриц и `RenderParams`.
-4. `Bootstrap.Update` → `Render()`: матрицы `TRS` из позиций, один
+4. `Bootstrap.Update` → `Tick(Time.deltaTime)`: `Position += Velocity × dt`, затем координаты
+   заворачиваются в `[−5, 5)` по обеим осям, даёт топологию тора.
+5. `Bootstrap.Update` → `Render()`: матрицы `TRS` из позиций, батчи
    `Graphics.RenderMeshInstanced`.
 
 Префаб не инстанцируется. Он используется как носитель меша и материала, поэтому в сцене нет
@@ -112,21 +114,23 @@ Bootstrap.Update
 - Поле: `10 × 10` world units, сетка `1000 × 1000`, клетка `0.01` (`QiFieldGrid`).
 - Камера: orthographic, size `5`, позиция `(0, 0, -10)`, фон чёрный.
 - Частица: квадрат `0.15` world units, белый unlit, GPU instancing включён.
+- Движение: `Position += Velocity × dt` в `Tick(dt)`; при выходе за `±5` координата переносится
+  на противоположную сторону — топология тора. При спавне скорость — случайное направление,
+  модуль в диапазоне `_speedMin … _speedMax` world units/s.
 
 Константы мира меняются только в `QiFieldGrid`, не дублируются по скриптам.
 
 ## 6. Известные ограничения
 
-- `QiParticleRenderer` выделяет буфер матриц ровно под `ParticleCapacity` (100). При росте
-  количества частиц нужно менять capacity и разбивать вызовы на батчи.
+- Количество частиц задаётся полем `_particleCapacity` на `QiParticleManager`; буфер матриц в
+  рендерере выделяется под `Capacity`.
 - `Graphics.RenderMeshInstanced` принимает максимум 1023 инстанса за вызов, а при наличии
   `worldToObject` в инстанс-данных — 511. URP Unlit не использует
-  `#pragma instancing_options assumeuniformscaling`, поэтому текущий практический предел —
-  511 инстансов на вызов.
+  `#pragma instancing_options assumeuniformscaling`, поэтому рендерер режет поток на батчи по 511.
 - `RenderParams.worldBounds` задан как `10 × 10`: весь батч отсекается и сортируется как одна
   сущность. Частицы за пределами bounds исчезнут.
 - Матрицы собираются на главном потоке. На 100 частицах это незаметно, на десятках тысяч —
-  главный кандидат на перенос в jobs/Burst.
+  главный кандидат на перенос в jobs/Burst. Текущие замеры: `Benchmarks.md`.
 - Одна сцена, загрузка сцен не используется. `DontDestroyOnLoad` не применяется: сервисы
   принадлежат сцене, при её смене всё пересоздаётся.
 
@@ -151,8 +155,9 @@ Bootstrap.Update
 
 ## 9. Открытые вопросы
 
-- Движение частиц: добавить `QiParticleManager.Tick(dt)` и вызвать его в `Bootstrap.Update`
-  перед `Render()`.
-- Масштабирование: capacity, батчи по 511 и замер на 100 / 1 000 / 10 000 частиц.
+- Движение: S1 сделан — `Tick(dt)`, случайная скорость при спавне, torus-wrap. Следующий шаг —
+  поле по GDD 3.2 (S2), перед ним нужно согласовать радиус взаимодействия и разрешение сетки.
+- Масштабирование: замеры 100 / 1 000 / 10 000 / 100 000 / 1 000 000 в двух режимах
+  (статика и S1 с движением), см. `Benchmarks.md`. Целевое число — 10 000.
 - Перенос сборки матриц в jobs/Burst — только после появления реального дрейфа.
 - Нужен ли префаб как носитель меша, или достаточно прямых ссылок на `Mesh` и `Material`.

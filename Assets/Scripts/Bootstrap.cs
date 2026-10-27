@@ -16,6 +16,7 @@ public sealed class Bootstrap : MonoBehaviour
 
     void Update()
     {
+        _particleManager.Tick(Time.deltaTime);
         _particleRenderer.Render();
     }
 
