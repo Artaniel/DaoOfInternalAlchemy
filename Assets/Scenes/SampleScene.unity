@@ -410,6 +410,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1142269070
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1142269072}
+  - component: {fileID: 1142269071}
+  m_Layer: 0
+  m_Name: QiParticleSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1142269071
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1142269070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5f3b13c4087c034c94cca1e7f0bfdf3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QiParticleSpawner
+  _particleCount: 100
+  _innerRadius: 1.5
+  _outerRadius: 3.5
+  _minSpeed: 0.25
+  _maxSpeed: 1
+  _charge: 1
+--- !u!4 &1142269072
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1142269070}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1324727840
 GameObject:
   m_ObjectHideFlags: 0
@@ -455,6 +505,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Bootstrap
   _particleManager: {fileID: 1819452416}
+  _particleSpawner: {fileID: 1142269071}
   _particleRenderer: {fileID: 995855382}
 --- !u!1 &1819452414
 GameObject:
@@ -500,9 +551,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2c692c9728dee24ab5c083a7cc394f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QiParticleManager
-  _particleCapacity: 100
-  _speedMin: 0.25
-  _speedMax: 1
+  _speedLimit: 2
+  _stampRadius: 30
+  _potentialScale: 0.002
+  _accelerationScale: 1
   ActiveCount: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
@@ -513,3 +565,4 @@ SceneRoots:
   - {fileID: 1324727841}
   - {fileID: 1819452415}
   - {fileID: 995855383}
+  - {fileID: 1142269072}

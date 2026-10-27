@@ -7,6 +7,7 @@ using UnityEngine;
 public sealed class Bootstrap : MonoBehaviour
 {
     [SerializeField] QiParticleManager _particleManager;
+    [SerializeField] QiParticleSpawner _particleSpawner;
     [SerializeField] QiParticleRenderer _particleRenderer;
 
     void Awake()
@@ -22,7 +23,8 @@ public sealed class Bootstrap : MonoBehaviour
 
     void Initialize()
     {
-        _particleManager.Initialize();
+        _particleManager.Initialize(_particleSpawner.ParticleCount);
+        _particleSpawner.Build(_particleManager);
         _particleRenderer.Initialize(_particleManager);
 
         Debug.Log("[Bootstrap] Application initialized.");

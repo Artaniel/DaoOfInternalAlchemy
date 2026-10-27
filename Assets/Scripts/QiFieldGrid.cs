@@ -40,6 +40,8 @@ public sealed class QiFieldGrid : IDisposable
 
     public void Set(int x, int y, float value) => _cells[ToIndex(x, y)] = value;
 
+    public void Add(int x, int y, float value) => _cells[ToIndex(x, y)] += value;
+
     public void Clear()
     {
         if (!_cells.IsCreated)

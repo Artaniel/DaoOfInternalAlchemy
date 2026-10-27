@@ -12,6 +12,7 @@
 public sealed class Bootstrap : MonoBehaviour
 {
     [SerializeField] QiParticleManager _particleManager;
+    [SerializeField] QiParticleSpawner _particleSpawner;
     [SerializeField] QiParticleRenderer _particleRenderer;
 
     void Awake()
@@ -21,18 +22,27 @@ public sealed class Bootstrap : MonoBehaviour
 
     void Update()
     {
+        _particleManager.Tick(Time.deltaTime);
         _particleRenderer.Render();
     }
 
     void Initialize()
     {
-        _particleManager.Initialize();
+        _particleManager.Initialize(_particleSpawner.ParticleCount);
+        _particleSpawner.Build(_particleManager);
         _particleRenderer.Initialize(_particleManager);
 
         Debug.Log("[Bootstrap] Application initialized.");
     }
 }
 ```
+
+Емкость буфера частиц задаёт спавнер: сколько частиц он создаёт, столько менеджер и выделяет.
+Поэтому `Initialize` менеджера принимает `capacity` аргументом, а не читает поле из инспектора.
+
+Комментарии в коде — на английском. Русская кириллица ломается в части инструментов (GitHub и
+подобные) и превращает исходники в нечитаемый текст. Русский остаётся в документации и в
+тултипах инспектора, то есть там, где текст читает человек в Unity, а не парсер.
 
 Сцена — composition root. Все ссылки между сервисами выставляются в инспекторе `Bootstrap`
 и больше нигде. В коде нет `GetComponent`, `Find*`, статических синглтонов и сервис-локаторов.
@@ -70,7 +80,10 @@ public void Initialize(QiParticleManager particleManager)
 
 ```
 Bootstrap.Update
-├─ QiParticleManager.Tick(dt)   // интеграция позиции, torus-wrap
+├─ QiParticleManager.Tick(dt)
+│  ├─ QiFieldGrid.Clear()        // обнулить потенциал
+│  ├─ StampField()               // каждая частица пишет Φ = k·q / r² в клетки вокруг себя
+│  └─ Integrate(dt)              // E = −∇Φ → a → v → x, ограничение скорости, torus-wrap
 └─ QiParticleRenderer.Render()
 ```
 
@@ -91,19 +104,27 @@ Bootstrap.Update
 
 | Объект | Компонент | Ответственность | Зависимости |
 |---|---|---|---|
-| `Bootstrap` | `Bootstrap` | порядок инициализации и кадра | `QiParticleManager`, `QiParticleRenderer` |
-| `QiParticleManager` | `QiParticleManager` | поле `QiFieldGrid` 1000×1000, `NativeArray<QiParticleData>` на `Capacity` частиц, спавн со случайной скоростью, интеграция позиции, torus-wrap, `ActiveCount` | — |
+| `Bootstrap` | `Bootstrap` | порядок инициализации и кадра | `QiParticleManager`, `QiParticleSpawner`, `QiParticleRenderer` |
+| `QiParticleManager` | `QiParticleManager` | поле `QiFieldGrid` 1000×1000, `NativeArray<QiParticleData>` на `capacity` частиц, запись частиц по индексу, штамп потенциала, сила по градиенту, интеграция, torus-wrap, `ActiveCount` | — |
+| `QiParticleSpawner` | `QiParticleSpawner` | начальное облако: количество, радиусы кольца, диапазон скоростей, заряд; один вызов `Build` на старте | `QiParticleManager` через аргумент `Build` |
 | `QiParticleRenderer` | `QiParticleRenderer` | инстансированная отрисовка частиц батчами по 511 | `QiParticleManager` через `Initialize` |
 
 Рантайм-поток:
 
 1. `Bootstrap.Awake` → `Initialize`.
-2. `QiParticleManager.Initialize` выделяет поле и массив частиц, спавнит 100 штук.
-3. `QiParticleRenderer.Initialize` берёт меш и материал из префаба `QiParticleQuad`,
+2. `QiParticleManager.Initialize(capacity)` выделяет поле и массив частиц на `capacity`;
+   `capacity` берётся из `QiParticleSpawner.ParticleCount`.
+3. `QiParticleSpawner.Build(manager)` создаёт облако: позиция в кольце `_innerRadius … _outerRadius`,
+   случайное направление, модуль скорости `_minSpeed … _maxSpeed`, заряд `_charge`.
+4. `QiParticleRenderer.Initialize` берёт меш и материал из префаба `QiParticleQuad`,
    выделяет буфер матриц и `RenderParams`.
-4. `Bootstrap.Update` → `Tick(Time.deltaTime)`: `Position += Velocity × dt`, затем координаты
-   заворачиваются в `[−5, 5)` по обеим осям, даёт топологию тора.
-5. `Bootstrap.Update` → `Render()`: матрицы `TRS` из позиций, батчи
+5. `Bootstrap.Update` → `Tick(Time.deltaTime)`:
+   - поле обнуляется;
+   - каждая частица штампует `Φ = k·q / r²` в окно `(2r+1)²` клеток вокруг своей клетки;
+   - для каждой частицы берётся центральная разность потенциала по клеткам `±1`,
+     `E = −∇Φ`, `F = E·q`, `a = F/m`, затем `v += a·dt` с ограничением модуля скорости;
+   - `Position += Velocity × dt`, координаты заворачиваются в `[−5, 5)` по обеим осям (тор).
+6. `Bootstrap.Update` → `Render()`: матрицы `TRS` из позиций, батчи
    `Graphics.RenderMeshInstanced`.
 
 Префаб не инстанцируется. Он используется как носитель меша и материала, поэтому в сцене нет
@@ -120,10 +141,55 @@ Bootstrap.Update
 
 Константы мира меняются только в `QiFieldGrid`, не дублируются по скриптам.
 
+## 5.1. Поле
+
+Одно скалярное потенциальное поле, один знак заряда (все `Charge = 1`). Обнуляется каждый кадр
+и штампуется заново.
+
+```
+Φ(клетка) = Σ k · q / (d + 0.5 · step)²      // d — расстояние между центрами клеток
+E          = −∇Φ                              // центральная разность клеток ±1
+F          = E · q
+a          = F · _accelerationScale          // _accelerationScale = 1/m
+v         += a · dt;  |v| ≤ _speedLimit
+x         += v · dt;  x → x mod 10 в [−5, 5)
+```
+
+- Штамп центрируется по клетке частицы, а ядро зависит только от |Δ| клеток. Поэтому вклады
+  частицы в клетки `±1` равны и в центральной разности сокращаются: частица не действует сама на
+  себя. Проверено: изолированная частица в покое не сдвигается.
+- `0.5 · step` — сглаживание сингулярности, `step = 0.01`, то есть `0.005`.
+- Штамп и выборка градиента заворачивают индексы клеток, поэтому поле тоже живёт на торе.
+- Знак `−∇Φ` даёт отталкивание одноимённых зарядов. Если нужна противоположная сила,
+  достаточно сделать `_accelerationScale` отрицательным.
+- Параметры в инспекторе `QiParticleManager`:
+
+| Поле | Смысл | По умолчанию |
+|---|---|---|
+| `_speedLimit` | предел модуля скорости, world units/s | `2` |
+| `_stampRadius` | радиус штампа в клетках, окно `(2r+1)²` | `30` (0.3 world units) |
+| `_potentialScale` | `k` в `Φ = k·q / r²` | `0.002` |
+| `_accelerationScale` | `1/m`, градиент → ускорение | `1` |
+
+Параметры начального облака живут отдельно, в `QiParticleSpawner`:
+
+| Поле | Смысл | По умолчанию |
+|---|---|---|
+| `_particleCount` | количество частиц и размер буфера менеджера | `100` |
+| `_innerRadius`, `_outerRadius` | кольцо спавна, world units | `1.5 … 3.5` |
+| `_minSpeed`, `_maxSpeed` | диапазон модуля начальной скорости | `0.25 … 1` |
+| `_charge` | заряд каждой созданной частицы | `1` |
+
+Предел скорости и диапазон скорости спавна намеренно разнесены по разным компонентам: в одном
+скрипте `_maxSpeed` и `_speedMax` слишком легко перепутать в инспекторе.
+
+Стоимость шага — `O(N · (2r+1)²)`, поэтому радиус штампа напрямую определяет бюджет на 10 000.
+Обнуление поля — отдельные `Width × Height` записей каждый кадр (4 МБ).
+
 ## 6. Известные ограничения
 
-- Количество частиц задаётся полем `_particleCapacity` на `QiParticleManager`; буфер матриц в
-  рендерере выделяется под `Capacity`.
+- Количество частиц задаётся полем `_particleCount` на `QiParticleSpawner`; менеджер выделяет
+  буфер под это число, рендерер — матрицы под `Capacity`.
 - `Graphics.RenderMeshInstanced` принимает максимум 1023 инстанса за вызов, а при наличии
   `worldToObject` в инстанс-данных — 511. URP Unlit не использует
   `#pragma instancing_options assumeuniformscaling`, поэтому рендерер режет поток на батчи по 511.
@@ -136,6 +202,9 @@ Bootstrap.Update
 
 ## 7. Соглашения по коду
 
+- Комментарии и XML-документация в коде — только на английском. Русская кириллица ломается
+  в части инструментов (GitHub и подобные) и превращает исходники в нечитаемый текст. Русский
+  допустим в документации и в тултипах инспектора — там его читает человек в Unity.
 - Проект маленький, поэтому явные типы вместо `var`: читаемость важнее компактности.
 - Приватные поля — `_camelCase`, один публичный класс на файл, `sealed` там, где не нужно
   наследование.
@@ -155,8 +224,9 @@ Bootstrap.Update
 
 ## 9. Открытые вопросы
 
-- Движение: S1 сделан — `Tick(dt)`, случайная скорость при спавне, torus-wrap. Следующий шаг —
-  поле по GDD 3.2 (S2), перед ним нужно согласовать радиус взаимодействия и разрешение сетки.
+- Движение: S1 сделан — `Tick(dt)`, случайная скорость при спавне, torus-wrap.
+- Поле: первая версия сделана (штамп + градиент + ограничение скорости), параметры крутятся
+  в инспекторе. Нагрузочный замер после подбора `_stampRadius` и `_potentialScale` не снят.
 - Масштабирование: замеры 100 / 1 000 / 10 000 / 100 000 / 1 000 000 в двух режимах
   (статика и S1 с движением), см. `Benchmarks.md`. Целевое число — 10 000.
 - Перенос сборки матриц в jobs/Burst — только после появления реального дрейфа.
