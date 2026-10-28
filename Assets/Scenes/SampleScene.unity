@@ -439,12 +439,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a5f3b13c4087c034c94cca1e7f0bfdf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QiParticleSpawner
-  _particleCount: 100
+  _particleCount: 10000
   _innerRadius: 1.5
   _outerRadius: 3.5
   _minSpeed: 0.25
   _maxSpeed: 1
   _charge: 1
+  _dropRatio: 1
 --- !u!4 &1142269072
 Transform:
   m_ObjectHideFlags: 0
@@ -552,9 +553,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QiParticleManager
   _speedLimit: 2
-  _stampRadius: 30
-  _potentialScale: 0.002
+  _chargeDensityScale: 1
   _accelerationScale: 1
+  _drag: 0.4
+  _flowInfluence: 1
   ActiveCount: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

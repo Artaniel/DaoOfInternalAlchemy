@@ -19,6 +19,9 @@ public sealed class QiParticleSpawner : MonoBehaviour
     [SerializeField] float _maxSpeed = 1f;
     [Tooltip("Заряд каждой созданной частицы.")]
     [SerializeField] float _charge = 1f;
+    [Tooltip("Доля частиц, которые будут источниками поля (капли). Остальные - искры.")]
+    [Range(0f, 1f)]
+    [SerializeField] float _dropRatio = 0.01f;
 
     public int ParticleCount => _particleCount;
 
@@ -34,7 +37,8 @@ public sealed class QiParticleSpawner : MonoBehaviour
             float speed = Mathf.Lerp(_minSpeed, _maxSpeed, UnityEngine.Random.value);
             float2 velocity = new float2(Mathf.Cos(direction), Mathf.Sin(direction)) * speed;
 
-            particleManager.Spawn(i, position, velocity, 0, _charge);
+            byte type = UnityEngine.Random.value < _dropRatio ? (byte)1 : (byte)0;
+            particleManager.Spawn(i, position, velocity, 0, type, _charge);
         }
     }
 }

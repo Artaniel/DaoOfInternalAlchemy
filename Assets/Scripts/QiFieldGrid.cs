@@ -4,13 +4,13 @@ using Unity.Mathematics;
 
 public sealed class QiFieldGrid : IDisposable
 {
-    public const int Width = 1000;
-    public const int Height = 1000;
-    public const int CellCount = Width * Height;
+    public static int Width = 100;
+    public static int Height = 100;
+    public static int CellCount => Width * Height;
 
     public const float WorldSize = 10f;
-    public const float WorldHalfSize = WorldSize * 0.5f;
-    public const float CellSize = WorldSize / Width;
+    public static float WorldHalfSize => WorldSize * 0.5f;
+    public static float CellSize => WorldSize / Width;
 
     NativeArray<float> _cells;
 
@@ -18,11 +18,17 @@ public sealed class QiFieldGrid : IDisposable
 
     public NativeArray<float> Cells => _cells;
 
+    public static void Configure(int width, int height)
+    {
+        Width = width;
+        Height = height;
+    }
+
     public void Allocate()
     {
         if (_cells.IsCreated)
         {
-            return;
+            _cells.Dispose();
         }
 
         _cells = new NativeArray<float>(CellCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
