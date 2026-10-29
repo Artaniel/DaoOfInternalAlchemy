@@ -3,7 +3,7 @@ using Unity.Mathematics;
 
 /// <summary>
 /// Builds the initial particle cloud. Owns everything about the starting distribution:
-/// count, ring radii, speed range and charge. Runs once from <see cref="Bootstrap.Initialize"/>.
+/// count, ring radii, speed range and element. Runs once from <see cref="Bootstrap.Initialize"/>.
 /// </summary>
 public sealed class QiParticleSpawner : MonoBehaviour
 {
@@ -17,11 +17,6 @@ public sealed class QiParticleSpawner : MonoBehaviour
     [SerializeField] float _minSpeed = 0.25f;
     [Tooltip("Максимальный модуль начальной скорости, world units/s.")]
     [SerializeField] float _maxSpeed = 1f;
-    [Tooltip("Заряд каждой созданной частицы.")]
-    [SerializeField] float _charge = 1f;
-    [Tooltip("Доля частиц, которые будут источниками поля (капли). Остальные - искры.")]
-    [Range(0f, 1f)]
-    [SerializeField] float _dropRatio = 0.01f;
 
     public int ParticleCount => _particleCount;
 
@@ -37,8 +32,9 @@ public sealed class QiParticleSpawner : MonoBehaviour
             float speed = Mathf.Lerp(_minSpeed, _maxSpeed, UnityEngine.Random.value);
             float2 velocity = new float2(Mathf.Cos(direction), Mathf.Sin(direction)) * speed;
 
-            byte type = UnityEngine.Random.value < _dropRatio ? (byte)1 : (byte)0;
-            particleManager.Spawn(i, position, velocity, 0, type, _charge);
+            // The spirit root will choose elements later; for the prototype they are mixed evenly.
+            byte element = (byte)UnityEngine.Random.Range(0, QiParticleData.ElementCount);
+            particleManager.Spawn(i, position, velocity, element);
         }
     }
 }
