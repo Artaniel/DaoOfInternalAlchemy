@@ -444,8 +444,6 @@ MonoBehaviour:
   _outerRadius: 3.5
   _minSpeed: 0.25
   _maxSpeed: 1
-  _charge: 1
-  _dropRatio: 1
 --- !u!4 &1142269072
 Transform:
   m_ObjectHideFlags: 0
@@ -471,7 +469,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1324727841}
   - component: {fileID: 1324727842}
-  - component: {fileID: 1324727843}
   m_Layer: 0
   m_Name: Bootstrap
   m_TagString: Untagged
@@ -509,24 +506,7 @@ MonoBehaviour:
   _particleManager: {fileID: 1819452416}
   _particleSpawner: {fileID: 1142269071}
   _particleRenderer: {fileID: 995855382}
---- !u!114 &1324727843
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1324727840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aedc2d2dc4150a24a826e0256ade33c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FieldBenchmark
-  _manager: {fileID: 1819452416}
-  _spawner: {fileID: 1142269071}
-  _renderer: {fileID: 995855382}
-  _targetCount: 10000
-  _warmupFrames: 30
-  _measureFrames: 60
+  _camera: {fileID: 519420031}
 --- !u!1 &1819452414
 GameObject:
   m_ObjectHideFlags: 0
@@ -572,10 +552,41 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QiParticleManager
   _speedLimit: 2
-  _chargeDensityScale: 1
   _accelerationScale: 1
+  _densityReference: 1
+  _blurSigmaCells: 2
+  _interaction:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
   _drag: 0.4
   _flowInfluence: 1
+  _convectionStrength: 0.25
+  _pointerFlowStrength: 0.2
+  _pointerFlowDecay: 1.5
+  _pointerFlowSigmaCells: 2
   ActiveCount: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

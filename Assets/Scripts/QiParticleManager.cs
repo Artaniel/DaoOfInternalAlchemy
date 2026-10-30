@@ -269,7 +269,7 @@ public sealed class QiParticleManager : MonoBehaviour
             int row = element * QiParticleData.ElementCount;
             _interaction[row + (element + 4) % QiParticleData.ElementCount] = 1f;
             _interaction[row + (element + 3) % QiParticleData.ElementCount] = -1f;
-            _interaction[row + (element + 2) % QiParticleData.ElementCount] = -0.5f;
+            //_interaction[row + (element + 2) % QiParticleData.ElementCount] = -0.5f;
         }
     }
 
