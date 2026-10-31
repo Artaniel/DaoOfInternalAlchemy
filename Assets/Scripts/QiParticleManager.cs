@@ -6,6 +6,7 @@ using Unity.Mathematics;
 /// Owns the particles and advances the prototype simulation one frame.
 /// Each element has its own density field; particles deposit into their own field
 /// and feel the gradients of all other fields through an asymmetric matrix.
+/// A sixth all-particle field adds a short-range pressure, so dense clumps push apart.
 /// </summary>
 public sealed class QiParticleManager : MonoBehaviour
 {
@@ -17,6 +18,12 @@ public sealed class QiParticleManager : MonoBehaviour
     [SerializeField] float _densityReference = 1f;
     [Tooltip("Сигма гауссова размытия плотности, в клетках.")]
     [SerializeField] float _blurSigmaCells = 2f;
+    [Tooltip("Сила короткодействующего давления. 0 отключает его.")]
+    [SerializeField] float _pressureStrength = 1f;
+    [Tooltip("Сигма поля давления, в клетках. Держать малой: 0.5–1.")]
+    [SerializeField] float _pressureSigmaCells = 0.75f;
+    [Tooltip("Опорная плотность давления, частиц на клетку. Делит градиент, чтобы сила не зависела от общего числа частиц.")]
+    [SerializeField] float _pressureReferenceDensity = 10f;
     [Tooltip("Матрица A[читающая стихия][поле источника] (0 дерево, 1 огонь, 2 земля, 3 металл, 4 вода): плюс — притяжение, минус — отталкивание.")]
     [SerializeField] float[] _interaction = new float[QiParticleData.ElementCount * QiParticleData.ElementCount];
     [Tooltip("Сопротивление среды. Экспоненциальное затухание скорости.")]
@@ -50,7 +57,9 @@ public sealed class QiParticleManager : MonoBehaviour
 
     public void Initialize(int capacity)
     {
-        if (IsInitialized)
+        // After a domain reload during Play the flag can survive while native arrays do not,
+        // so re-initialize when the particle buffer is missing.
+        if (IsInitialized && _particles.IsCreated)
         {
             return;
         }
@@ -97,6 +106,9 @@ public sealed class QiParticleManager : MonoBehaviour
         UpdatePointerFlow(pointerWorld, pointerDown, delta);
 
         float invReferenceDensity = 1f / math.max(_densityReference, 1e-4f);
+        float pressureScale = _pressureStrength > 0f
+            ? _pressureStrength / math.max(_pressureReferenceDensity, 1e-4f)
+            : 0f;
         float dragFactor = math.exp(-_drag * delta);
         float flowBlend = 1f - math.exp(-_flowInfluence * delta);
 
@@ -126,6 +138,12 @@ public sealed class QiParticleManager : MonoBehaviour
 
             particle.Velocity += acceleration * (_accelerationScale * invReferenceDensity) * delta;
 
+            if (pressureScale > 0f)
+            {
+                float2 pressureGradient = _field.SampleGradient(QiFieldGrid.PressureField, particle.Position);
+                particle.Velocity -= pressureGradient * (pressureScale * delta);
+            }
+
             float2 flow = BaseConvection(particle.Position) + _pointerFlow.Sample(particle.Position);
             particle.Velocity += (flow - particle.Velocity) * flowBlend;
 
@@ -148,7 +166,9 @@ public sealed class QiParticleManager : MonoBehaviour
             _field.Deposit(particle.Element % QiParticleData.ElementCount, particle.Position, 1f);
         }
 
+        _field.BuildPressureField();
         _field.Blur(_blurSigmaCells);
+        _field.BlurPressure(_pressureSigmaCells);
         _field.ComputeGradients();
     }
 
